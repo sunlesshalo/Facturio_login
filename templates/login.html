@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Facturio - Login</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    form p { margin-bottom: 1em; }
+    label { font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Login Facturio</h1>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <ul style="color: red;">
+        {% for message in messages %}
+          <li>{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endwith %}
+
+  <form method="post" action="{{ url_for('login') }}">
+    <p>
+      <label for="email">Nume de utilizator (SmartBill email):</label><br>
+      <input type="email" id="email" name="email" required size="40">
+    </p>
+    <p>
+      <label for="password">Parola (CUI):</label><br>
+      <input type="password" id="password" name="password" required size="40">
+    </p>
+    <p>
+      <button type="submit">Login</button>
+    </p>
+  </form>
+
+  <p>
+    Nu aveți cont? Vă rugăm să finalizați onboarding-ul: <a href="{{ url_for('index') }}">Onboarding SmartBill</a>
+  </p>
+</body>
+</html>

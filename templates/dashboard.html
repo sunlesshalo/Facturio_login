@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Facturio - Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    .header { display: flex; justify-content: space-between; align-items: center; }
+    .header div { font-size: 0.9em; }
+    a { text-decoration: none; color: blue; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>Dashboard</h1>
+      <p>{{ flash_message or "" }}</p>
+    </div>
+    <div>
+      <!-- Display SmartBill user info in the upper right corner -->
+      <p><strong>Nume utilizator:</strong> {{ email }}</p>
+      <p><strong>CUI:</strong> {{ cui }}</p>
+      <p><strong>Seria facturare:</strong> {{ default_series }}</p>
+      <!-- Logout button -->
+      <p><a href="{{ url_for('logout') }}">Logout</a></p>
+      <!-- Link to change password -->
+      <p><a href="{{ url_for('change_password') }}">Schimbare parola</a></p>
+    </div>
+  </div>
+
+  <hr>
+  <p>Bine ați venit în Facturio Dashboard!</p>
+  <!-- Here you can add more dashboard content -->
+</body>
+</html>

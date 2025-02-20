@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Onboarding - Conectare la SmartBill & Stripe</title>
+  <style>
+    /* Basic styling for the page */
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    form p { margin-bottom: 1em; }
+    label { font-weight: bold; }
+    .hidden { display: none; }
+
+    /* Styling for the modal popup */
+    .modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background: #fff;
+      padding: 2em;
+      border-radius: 5px;
+      max-width: 400px;
+      width: 100%;
+    }
+
+    /* Styling for disabled fields */
+    input[disabled], button[disabled] {
+      background-color: #eee;
+      color: #888;
+    }
+
+    /* Style for the "Continuare" button */
+    #continue-btn {
+      margin-top: 1em;
+      padding: 0.5em 1em;
+      font-size: 1em;
+      background-color: #28a745;
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Conectare la SmartBill</h1>
+
+  <!-- Div for showing flash (temporary) messages -->
+  <div id="flash-messages"></div>
+
+  <!-- SmartBill Credentials Form -->
+  <!-- This form collects the SmartBill username (email), token, and company tax code (CIF) -->
+  <form id="smartbill-form">
+    <p>
+      <label for="smartbill_email">Nume de utilizator SmartBill (email):</label><br>
+      <input type="email" id="smartbill_email" name="smartbill_email" required size="40">
+    </p>
+    <p>
+      <label for="smartbill_token">SmartBill Token:</label><br>
+      <input type="text" id="smartbill_token" name="smartbill_token" required size="40">
+    </p>
+    <p>
+      <label for="cif">Cod de Identificare Fiscala:</label><br>
+      <input type="text" id="cif" name="cif" required size="40">
+    </p>
+    <p>
+      <!-- Button to submit the SmartBill form -->
+      <button type="submit" id="connect-smartbill-btn">Conectare la SmartBill</button>
+    </p>
+  </form>
+
+  <!-- Stripe API Key Section (hidden until SmartBill is connected) -->
+  <div id="stripe-section" class="hidden">
+    <h2>Conectare Stripe</h2>
+    <!-- Form for entering the Stripe Restricted API Key -->
+    <form id="stripe-form">
+      <p>
+        <label for="stripe_key">Stripe Restricted API Key:</label><br>
+        <input type="text" id="stripe_key" name="stripe_key" required size="40">
+      </p>
+      <p>
+        <button type="submit">Conectare la Stripe</button>
+      </p>
+    </form>
+    <!-- "Continuare" button that appears after a successful Stripe connection -->
+    <button id="continue-btn" class="hidden">Continuare</button>
+  </div>
+
+  <!-- Modal Popup for selecting default series when multiple series are returned -->
+  <div id="series-modal" class="modal">
+    <div class="modal-content">
+      <h2>Selectați seria implicită</h2>
+      <p>
+        <label for="modal_default_series">Serii disponibile:</label><br>
+        <select id="modal_default_series" name="modal_default_series" required></select>
+      </p>
+      <p>
+        <!-- Button to confirm the selection -->
+        <button id="modal-confirm-btn">Salvează seria implicită</button>
+        <!-- Button to cancel the modal popup -->
+        <button id="modal-cancel-btn">Renunță</button>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Function to display flash messages at the top of the page.
+    function flashMessage(msg) {
+      const flashDiv = document.getElementById("flash-messages");
+      flashDiv.innerHTML = `<p style="color: green;">${msg}</p>`;
+    }
+
+    // Function to disable all fields and buttons in the SmartBill form.
+    function disableSmartbillForm() {
+      const form = document.getElementById("smartbill-form");
+      const elements = form.querySelectorAll("input, button");
+      elements.forEach(el => el.disabled = true);
+    }
+
+    // Function to show the Stripe section (making it visible).
+    function showStripeSection() {
+      document.getElementById("stripe-section").classList.remove("hidden");
+    }
+
+    // Function to show the "Continuare" button.
+    function showContinueButton() {
+      document.getElementById("continue-btn").classList.remove("hidden");
+    }
+
+    // When the "Continuare" button is clicked, redirect the user to the dashboard page.
+    document.getElementById("continue-btn").addEventListener("click", function() {
+      window.location.href = "/dashboard";
+    });
+
+    // Handle submission of the SmartBill credentials form.
+    document.getElementById("smartbill-form").addEventListener("submit", function(e) {
+      e.preventDefault();  // Prevent the page from refreshing
+      if (document.getElementById("connect-smartbill-btn").disabled) return;
+
+      // Get the values entered by the user.
+      const smartbill_email = document.getElementById("smartbill_email").value.trim();
+      const smartbill_token = document.getElementById("smartbill_token").value.trim();
+      const cif = document.getElementById("cif").value.trim();
+
+      // Send the SmartBill credentials to the backend via an AJAX POST request.
+      fetch("/api/get_series", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ smartbill_email, smartbill_token, cif })
+      })
+      .then(response => response.json())
+      .then(data => {
+        // If an error occurs, display the error message.
+        if (data.status !== "success") {
+          flashMessage(data.message);
+          return;
+        }
+        const seriesList = data.series_list;
+        if (seriesList.length === 1) {
+          // If only one series is returned:
+          const seriesName = seriesList[0].name || seriesList[0];
+          // Send a request to save the default series along with the CIF (so that the user record is created).
+          fetch("/api/set_default_series", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ smartbill_email, default_series: seriesName, cif })
+          })
+          .then(res => res.json())
+          .then(resp => {
+            if (resp.status === "success") {
+              flashMessage("Conectat la SmartBill cu success: " + seriesName);
+              // Disable the SmartBill form fields so they cannot be changed.
+              disableSmartbillForm();
+              // Reveal the Stripe section.
+              showStripeSection();
+            } else {
+              flashMessage("Eroare la salvarea seriei implicite.");
+            }
+          });
+        } else {
+          // If multiple series are returned, show the modal popup.
+          const modalSelect = document.getElementById("modal_default_series");
+          modalSelect.innerHTML = "";  // Clear any existing options
+          seriesList.forEach(series => {
+            const option = document.createElement("option");
+            option.value = (series.name ? series.name : series);
+            option.text = (series.name ? series.name : series);
+            modalSelect.appendChild(option);
+          });
+          // Display the modal popup.
+          document.getElementById("series-modal").style.display = "flex";
+        }
+      })
+      .catch(error => {
+        console.error("Error:", error);
+        flashMessage("Eroare de conexiune.");
+      });
+    });
+
+    // Handle modal confirmation (when the user selects a series from the popup).
+    document.getElementById("modal-confirm-btn").onclick = function() {
+      const smartbill_email = document.getElementById("smartbill_email").value.trim();
+      const default_series = document.getElementById("modal_default_series").value;
+      const cif = document.getElementById("cif").value.trim(); // Retrieve the CIF from the disabled field
+      // Send the selected default series along with the CIF to the backend.
+      fetch("/api/set_default_series", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ smartbill_email, default_series, cif })
+      })
+      .then(res => res.json())
+      .then(resp => {
+        if (resp.status === "success") {
+          flashMessage("Conectat la SmartBill cu success: " + default_series);
+          // Hide the modal popup.
+          document.getElementById("series-modal").style.display = "none";
+          // Disable the SmartBill form so that fields cannot be changed.
+          disableSmartbillForm();
+          // Reveal the Stripe section.
+          showStripeSection();
+        } else {
+          flashMessage("Eroare la salvarea seriei implicite.");
+        }
+      });
+    };
+
+    // Handle modal cancellation.
+    document.getElementById("modal-cancel-btn").onclick = function() {
+      document.getElementById("series-modal").style.display = "none";
+      flashMessage("Selectia seriei a fost anulată.");
+    };
+
+    // Handle submission of the Stripe form.
+    document.getElementById("stripe-form").addEventListener("submit", function(e) {
+      e.preventDefault();  // Prevent page refresh
+      const stripe_key = document.getElementById("stripe_key").value.trim();
+      if (!stripe_key) {
+        flashMessage("Please provide the Stripe key.");
+        return;
+      }
+      // Send the Stripe key to the backend to create the webhook.
+      fetch("/api/stripe_create_webhook", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ stripe_key })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === "success") {
+          // If the webhook is created successfully, display the success message and show the "Continuare" button.
+          flashMessage("Stripe conectat cu success! Webhook creat: " + data.webhook.id);
+          showContinueButton();
+        } else {
+          flashMessage("Eroare la crearea webhook-ului Stripe: " + data.message);
+        }
+      })
+      .catch(error => {
+         console.error("Error:", error);
+         flashMessage("Eroare de conexiune la Stripe.");
+      });
+    });
+  </script>
+
+</body>
+</html>
